@@ -1,12 +1,11 @@
 # app.py
 import streamlit as st
 import pandas as pd
-import gspread
-from google.oauth2.service_account import Credentials
+from gspread_pandas import Spread
 
 # --- CONFIGURACIÓN INICIAL ---
 APP_TITLE = "Análisis de Evoluciones de Fisioterapia"
-# PEGA AQUÍ EL ID DE TU HOJA DE CÁLCULO
+# Pega aquí el ID de tu hoja de cálculo. Este sigue siendo necesario.
 SPREADSHEET_ID = "1FAJfXEs6RX3qe2FJehtysZ4WruT1gc13heXWWTNziJA"
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
@@ -44,37 +43,20 @@ ATTRIBUTE_GROUPS = {
     }
 }
 
-# --- LÓGICA DEL BACKEND ---
+# --- LÓGICA DEL BACKEND SIMPLIFICADA ---
 @st.cache_data(ttl="10m")
 def load_data():
-    """Carga los datos desde Google Sheets usando el ID único de la hoja."""
+    """Carga los datos desde una hoja de cálculo pública de Google."""
     try:
-        scopes = [
-            'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/drive'
-        ]
-        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
-        gc = gspread.authorize(creds)
-
-        spreadsheet = gc.open_by_key(SPREADSHEET_ID)
-        worksheet = spreadsheet.worksheet("Resultados")
-
-        # La función get_all_records() asume que la primera fila es el encabezado.
-        df = pd.DataFrame(worksheet.get_all_records())
+        # Esta conexión no necesita credenciales porque la hoja es pública.
+        spread = Spread(SPREADSHEET_ID)
+        df = spread.sheet_to_df(sheet='Resultados', index=0, header_rows=1)
 
         df['ID'] = df['ID'].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
-    except gspread.exceptions.SpreadsheetNotFound:
-        st.error("Error: No se encontró la hoja de cálculo. Verifica que el ID sea correcto y que hayas compartido el archivo.")
-        return pd.DataFrame()
-    except gspread.exceptions.WorksheetNotFound:
-        st.error("Error: No se encontró la pestaña 'Resultados' en tu hoja de cálculo.")
-        return pd.DataFrame()
     except Exception as e:
-        # --- SECCIÓN MODIFICADA PARA MOSTRAR EL ERROR COMPLETO ---
-        st.error("Ocurrió un error inesperado al leer los datos de la hoja.")
-        st.error("Por favor, comparte el siguiente detalle técnico para poder diagnosticarlo:")
-        st.exception(e) # Esto mostrará el error completo en la aplicación.
+        st.error("Ocurrió un error al cargar la hoja pública. Verifica que el ID sea correcto y que el acceso general esté configurado como 'Cualquier persona con el enlace'.")
+        st.exception(e)
         return pd.DataFrame()
 
 def calculate_result(val1, val2):
@@ -93,7 +75,6 @@ st.write("Herramienta para visualizar y comparar la evolución de un paciente en
 df = load_data()
 
 if not df.empty:
-    # El resto del código de la UI no cambia
     df['Paciente Busqueda'] = df['Nombre'] + ' - ID: ' + df['ID']
     patient_list = [''] + sorted(df['Paciente Busqueda'].unique().tolist())
 
