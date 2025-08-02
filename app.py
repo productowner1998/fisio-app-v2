@@ -46,8 +46,6 @@ ATTRIBUTE_GROUPS = {
 def load_data():
     """Carga los datos desde Google Sheets usando las credenciales de Streamlit Secrets."""
     try:
-        # --- LA LÍNEA QUE CAMBIÓ ESTÁ AQUÍ ---
-        # Añadimos el permiso de Google Drive para que la app pueda buscar el archivo por su nombre.
         scopes = [
             'https://www.googleapis.com/auth/spreadsheets',
             'https://www.googleapis.com/auth/drive'
@@ -55,19 +53,24 @@ def load_data():
         creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
         gc = gspread.authorize(creds)
 
-        # Abre la hoja de cálculo por su nombre y la pestaña por su nombre
-        spreadsheet = gc.open("Resultados de Fisioterapia")
+        # --- LA LÍNEA QUE CAMBIÓ ESTÁ AQUÍ ---
+        # Apuntamos al nuevo nombre del archivo: "Database-evolutions"
+        spreadsheet = gc.open("Database-evolutions")
         worksheet = spreadsheet.worksheet("Resultados")
 
-        # Carga los datos a un DataFrame de Pandas
         df = pd.DataFrame(worksheet.get_all_records())
 
-        # Limpieza de datos
         df['ID'] = df['ID'].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
+    except gspread.exceptions.SpreadsheetNotFound:
+        st.error("Error: No se encontró la hoja de cálculo 'Database-evolutions'.")
+        st.error("Verifica que el nombre del archivo en tu Google Drive sea exacto y que lo hayas compartido con el email del servicio.")
+        return pd.DataFrame()
+    except gspread.exceptions.WorksheetNotFound:
+        st.error("Error: No se encontró la pestaña 'Resultados' en tu hoja de cálculo.")
+        return pd.DataFrame()
     except Exception as e:
-        st.error(f"Error al cargar los datos: {e}")
-        st.error("Verifica que los 'Secrets' en Streamlit estén bien configurados y que la hoja de Google fue compartida con el email del servicio.")
+        st.error(f"Ocurrió un error inesperado al cargar los datos: {e}")
         return pd.DataFrame()
 
 def calculate_result(val1, val2):
@@ -119,7 +122,6 @@ if not df.empty:
 
                     for group_name, items in ATTRIBUTE_GROUPS.items():
                         st.subheader(group_name)
-                        # Grupo simple
                         if isinstance(items, list):
                             table_data = []
                             for attr in items:
@@ -129,9 +131,8 @@ if not df.empty:
                                     'Fecha Comparativa': val2, 'Resultado': calculate_result(val1, val2)
                                 })
                             st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
-                        # Grupo con subgrupos
                         else: 
-                            for subgroup_name, sub_items in items.items():
+                            for subgroup_name, sub_items in items["PATRONES FUNDAMENTALES DE MOVIMIENTO"].items():
                                 st.markdown(f"**{subgroup_name}**")
                                 table_data = []
                                 for attr in sub_items:
