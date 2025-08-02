@@ -75,7 +75,7 @@ st.write("Herramienta para visualizar y comparar la evolución de un paciente en
 
 df = load_data()
 
-if not df.empty:
+if not df.empty and 'pdf link' in df.columns:
     df['Paciente Busqueda'] = df['Nombre'] + ' - ID: ' + df['ID'].astype(str)
     patient_list = [''] + sorted(df['Paciente Busqueda'].unique().tolist())
     
@@ -95,8 +95,6 @@ if not df.empty:
         else:
             col1, col2 = st.columns(2)
             with col1:
-                # --- CAMBIO 1 ---
-                # Se añade index=None para que no haya selección por defecto.
                 date1 = st.selectbox(
                     "Fecha de inicio del análisis",
                     options=available_dates,
@@ -105,14 +103,11 @@ if not df.empty:
                     help="Evolución Reciente"
                 )
             
-            # Las opciones para la segunda fecha solo se activan si se elige la primera.
             date2_options = []
             if date1:
                 date2_options = [d for d in available_dates if d != date1]
             
             with col2:
-                # --- CAMBIO 2 ---
-                # Se añade index=None y se desactiva si no se ha elegido la primera fecha.
                 date2 = st.selectbox(
                     "Fecha de fin del análisis",
                     options=date2_options,
@@ -125,8 +120,21 @@ if not df.empty:
             if st.button("Correr Análisis Comparativo", type="primary"):
                 if date1 and date2:
                     st.header(f"Resultados para: {selected_patient}")
+                    
                     row1 = patient_df[patient_df['Fecha Evolución'] == date1].iloc[0]
                     row2 = patient_df[patient_df['Fecha Evolución'] == date2].iloc[0]
+                    
+                    # --- NUEVA SECCIÓN PARA MOSTRAR LOS ENLACES ---
+                    url1 = row1.get('pdf link', '#')
+                    url2 = row2.get('pdf link', '#')
+                    
+                    st.markdown(f"""
+                    <p style="text-align: right; font-size: 0.9em; font-style: italic;">
+                        <a href="{url1}" target="_blank">Ver informe original ({date1})</a> | 
+                        <a href="{url2}" target="_blank">Ver informe original ({date2})</a>
+                    </p>
+                    """, unsafe_allow_html=True)
+                    # --- FIN DE LA NUEVA SECCIÓN ---
 
                     for group_name, items in ATTRIBUTE_GROUPS.items():
                         st.subheader(group_name)
@@ -150,5 +158,8 @@ if not df.empty:
                                         'Fecha Comparativa': val2, 'Resultado': calculate_result(val1, val2)
                                     })
                                 st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
-                else:
+                # Condición para manejar el caso en que el botón es presionado sin fechas seleccionadas
+                elif not date1 or not date2:
                     st.error("Por favor, seleccione ambas fechas para realizar el análisis.")
+elif not df.empty and 'pdf link' not in df.columns:
+    st.error("Error: La columna 'pdf link' no se encontró en la base de datos. Por favor, ejecuta de nuevo el script extractor en Google Apps Script para añadirla.")
