@@ -56,11 +56,10 @@ def load_data():
         creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
         gc = gspread.authorize(creds)
 
-        # --- LA LÍNEA QUE CAMBIÓ ESTÁ AQUÍ ---
-        # Abrimos la hoja de cálculo usando su ID único.
         spreadsheet = gc.open_by_key(SPREADSHEET_ID)
         worksheet = spreadsheet.worksheet("Resultados")
 
+        # La función get_all_records() asume que la primera fila es el encabezado.
         df = pd.DataFrame(worksheet.get_all_records())
 
         df['ID'] = df['ID'].astype(str).str.replace(r'\.0$', '', regex=True)
@@ -72,7 +71,10 @@ def load_data():
         st.error("Error: No se encontró la pestaña 'Resultados' en tu hoja de cálculo.")
         return pd.DataFrame()
     except Exception as e:
-        st.error(f"Ocurrió un error inesperado al cargar los datos: {e}")
+        # --- SECCIÓN MODIFICADA PARA MOSTRAR EL ERROR COMPLETO ---
+        st.error("Ocurrió un error inesperado al leer los datos de la hoja.")
+        st.error("Por favor, comparte el siguiente detalle técnico para poder diagnosticarlo:")
+        st.exception(e) # Esto mostrará el error completo en la aplicación.
         return pd.DataFrame()
 
 def calculate_result(val1, val2):
@@ -91,6 +93,7 @@ st.write("Herramienta para visualizar y comparar la evolución de un paciente en
 df = load_data()
 
 if not df.empty:
+    # El resto del código de la UI no cambia
     df['Paciente Busqueda'] = df['Nombre'] + ' - ID: ' + df['ID']
     patient_list = [''] + sorted(df['Paciente Busqueda'].unique().tolist())
 
