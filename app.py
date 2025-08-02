@@ -48,13 +48,8 @@ def load_data():
     """Carga los datos desde una hoja de cálculo pública de Google usando una URL de exportación CSV."""
     try:
         sheet_name = "Resultados"
-        # Construye la URL de exportación directa
         url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
-
-        # Lee el archivo CSV directamente desde la URL
         df = pd.read_csv(url)
-
-        # Limpieza de datos
         df['ID'] = df['ID'].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
     except Exception as e:
@@ -83,7 +78,7 @@ df = load_data()
 if not df.empty:
     df['Paciente Busqueda'] = df['Nombre'] + ' - ID: ' + df['ID'].astype(str)
     patient_list = [''] + sorted(df['Paciente Busqueda'].unique().tolist())
-
+    
     st.header("1. Seleccione el Paciente")
     selected_patient = st.selectbox(
         "Buscar por nombre o número de identificación",
@@ -93,18 +88,39 @@ if not df.empty:
     if selected_patient:
         patient_df = df[df['Paciente Busqueda'] == selected_patient].copy()
         available_dates = sorted(patient_df['Fecha Evolución'].unique(), reverse=True)
-
+        
         st.header("2. Seleccione las Fechas a Comparar")
         if len(available_dates) < 2:
             st.warning("Este paciente solo tiene un registro. Se necesita al menos dos evoluciones para poder comparar.")
         else:
             col1, col2 = st.columns(2)
             with col1:
-                date1 = st.selectbox("Fecha de inicio del análisis", options=available_dates, help="Evolución Reciente")
-
-            date2_options = [d for d in available_dates if d != date1]
+                # --- CAMBIO 1 ---
+                # Se añade index=None para que no haya selección por defecto.
+                date1 = st.selectbox(
+                    "Fecha de inicio del análisis",
+                    options=available_dates,
+                    index=None,
+                    placeholder="Seleccione una fecha...",
+                    help="Evolución Reciente"
+                )
+            
+            # Las opciones para la segunda fecha solo se activan si se elige la primera.
+            date2_options = []
+            if date1:
+                date2_options = [d for d in available_dates if d != date1]
+            
             with col2:
-                date2 = st.selectbox("Fecha de fin del análisis", options=date2_options, help="Fecha de comparación")
+                # --- CAMBIO 2 ---
+                # Se añade index=None y se desactiva si no se ha elegido la primera fecha.
+                date2 = st.selectbox(
+                    "Fecha de fin del análisis",
+                    options=date2_options,
+                    index=None,
+                    placeholder="Seleccione una fecha...",
+                    help="Fecha de comparación",
+                    disabled=(not date1)
+                )
 
             if st.button("Correr Análisis Comparativo", type="primary"):
                 if date1 and date2:
