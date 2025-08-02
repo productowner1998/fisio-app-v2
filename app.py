@@ -6,6 +6,9 @@ from google.oauth2.service_account import Credentials
 
 # --- CONFIGURACIÓN INICIAL ---
 APP_TITLE = "Análisis de Evoluciones de Fisioterapia"
+# PEGA AQUÍ EL ID DE TU HOJA DE CÁLCULO
+SPREADSHEET_ID = "1FAJfXEs6RX3qe2FJehtysZ4WruT1gc13heXWWTNziJA"
+
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 
 ATTRIBUTE_GROUPS = {
@@ -44,7 +47,7 @@ ATTRIBUTE_GROUPS = {
 # --- LÓGICA DEL BACKEND ---
 @st.cache_data(ttl="10m")
 def load_data():
-    """Carga los datos desde Google Sheets usando las credenciales de Streamlit Secrets."""
+    """Carga los datos desde Google Sheets usando el ID único de la hoja."""
     try:
         scopes = [
             'https://www.googleapis.com/auth/spreadsheets',
@@ -54,8 +57,8 @@ def load_data():
         gc = gspread.authorize(creds)
 
         # --- LA LÍNEA QUE CAMBIÓ ESTÁ AQUÍ ---
-        # Apuntamos al nuevo nombre del archivo: "Database-evolutions"
-        spreadsheet = gc.open("Database-evolutions")
+        # Abrimos la hoja de cálculo usando su ID único.
+        spreadsheet = gc.open_by_key(SPREADSHEET_ID)
         worksheet = spreadsheet.worksheet("Resultados")
 
         df = pd.DataFrame(worksheet.get_all_records())
@@ -63,8 +66,7 @@ def load_data():
         df['ID'] = df['ID'].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
     except gspread.exceptions.SpreadsheetNotFound:
-        st.error("Error: No se encontró la hoja de cálculo 'Database-evolutions'.")
-        st.error("Verifica que el nombre del archivo en tu Google Drive sea exacto y que lo hayas compartido con el email del servicio.")
+        st.error("Error: No se encontró la hoja de cálculo. Verifica que el ID sea correcto y que hayas compartido el archivo.")
         return pd.DataFrame()
     except gspread.exceptions.WorksheetNotFound:
         st.error("Error: No se encontró la pestaña 'Resultados' en tu hoja de cálculo.")
@@ -132,7 +134,7 @@ if not df.empty:
                                 })
                             st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
                         else: 
-                            for subgroup_name, sub_items in items["PATRONES FUNDAMENTALES DE MOVIMIENTO"].items():
+                            for subgroup_name, sub_items in items.items():
                                 st.markdown(f"**{subgroup_name}**")
                                 table_data = []
                                 for attr in sub_items:
