@@ -46,12 +46,23 @@ ATTRIBUTE_GROUPS = {
 def load_data():
     """Carga los datos desde Google Sheets usando las credenciales de Streamlit Secrets."""
     try:
-        scopes = ['https://www.googleapis.com/auth/spreadsheets']
+        # --- LA LÍNEA QUE CAMBIÓ ESTÁ AQUÍ ---
+        # Añadimos el permiso de Google Drive para que la app pueda buscar el archivo por su nombre.
+        scopes = [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive'
+        ]
         creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
         gc = gspread.authorize(creds)
+
+        # Abre la hoja de cálculo por su nombre y la pestaña por su nombre
         spreadsheet = gc.open("Resultados de Fisioterapia")
         worksheet = spreadsheet.worksheet("Resultados")
+
+        # Carga los datos a un DataFrame de Pandas
         df = pd.DataFrame(worksheet.get_all_records())
+
+        # Limpieza de datos
         df['ID'] = df['ID'].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
     except Exception as e:
