@@ -1,11 +1,10 @@
 # app.py
 import streamlit as st
 import pandas as pd
-from gspread_pandas import Spread
 
 # --- CONFIGURACIÓN INICIAL ---
 APP_TITLE = "Análisis de Evoluciones de Fisioterapia"
-# Pega aquí el ID de tu hoja de cálculo. Este sigue siendo necesario.
+# Pega aquí el ID de tu hoja de cálculo.
 SPREADSHEET_ID = "1FAJfXEs6RX3qe2FJehtysZ4WruT1gc13heXWWTNziJA"
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
@@ -43,19 +42,26 @@ ATTRIBUTE_GROUPS = {
     }
 }
 
-# --- LÓGICA DEL BACKEND SIMPLIFICADA ---
+# --- LÓGICA DEL BACKEND CON LECTURA DIRECTA ---
 @st.cache_data(ttl="10m")
 def load_data():
-    """Carga los datos desde una hoja de cálculo pública de Google."""
+    """Carga los datos desde una hoja de cálculo pública de Google usando una URL de exportación CSV."""
     try:
-        # Esta conexión no necesita credenciales porque la hoja es pública.
-        spread = Spread(SPREADSHEET_ID)
-        df = spread.sheet_to_df(sheet='Resultados', index=0, header_rows=1)
+        sheet_name = "Resultados"
+        # Construye la URL de exportación directa
+        url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
 
+        # Lee el archivo CSV directamente desde la URL
+        df = pd.read_csv(url)
+
+        # Limpieza de datos
         df['ID'] = df['ID'].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
     except Exception as e:
-        st.error("Ocurrió un error al cargar la hoja pública. Verifica que el ID sea correcto y que el acceso general esté configurado como 'Cualquier persona con el enlace'.")
+        st.error("Ocurrió un error al cargar la hoja pública. Verifica:")
+        st.error("1. Que el ID del Spreadsheet sea correcto.")
+        st.error("2. Que el nombre de la pestaña sea exactamente 'Resultados'.")
+        st.error("3. Que el acceso general del archivo sea 'Cualquier persona con el enlace'.")
         st.exception(e)
         return pd.DataFrame()
 
@@ -75,7 +81,7 @@ st.write("Herramienta para visualizar y comparar la evolución de un paciente en
 df = load_data()
 
 if not df.empty:
-    df['Paciente Busqueda'] = df['Nombre'] + ' - ID: ' + df['ID']
+    df['Paciente Busqueda'] = df['Nombre'] + ' - ID: ' + df['ID'].astype(str)
     patient_list = [''] + sorted(df['Paciente Busqueda'].unique().tolist())
 
     st.header("1. Seleccione el Paciente")
